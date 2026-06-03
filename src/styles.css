@@ -1,7 +1,8 @@
 :root {
+  --game-font: "Caveat Brush", "Trebuchet MS", "Segoe UI", Arial, sans-serif;
   color: #45423c;
   background: #f6f0e4;
-  font-family: "Trebuchet MS", "Segoe UI", Arial, sans-serif;
+  font-family: var(--game-font);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
@@ -280,7 +281,7 @@ button {
 .settings-card h2 {
   margin: 0;
   color: #4d4a44;
-  font-family: "Trebuchet MS", "Segoe UI", Arial, sans-serif;
+  font-family: var(--game-font);
   line-height: 1;
 }
 
