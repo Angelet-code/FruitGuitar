@@ -1,4 +1,4 @@
-import { Camera, Heart, Play, RotateCcw, Settings, X } from "lucide-react";
+import { Heart, Play, RotateCcw, Settings, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChordPanel } from "./components/ChordPanel";
 import { CameraPanel } from "./components/CameraPanel";
@@ -19,6 +19,8 @@ const INITIAL_SNAPSHOT: GameSnapshot = {
 
 export function App() {
   const audio = useAudioInput();
+  const requestPermissions = audio.start;
+  const resumeAudio = audio.resume;
   const engineRef = useRef<GameEngine>(new GameEngine());
   const autoStartedRef = useRef(false);
   const [snapshot, setSnapshot] = useState<GameSnapshot>(INITIAL_SNAPSHOT);
@@ -36,8 +38,12 @@ export function App() {
     setHasStarted(true);
     engineRef.current.reset();
     setSnapshot(engineRef.current.getSnapshot());
-    await audio.start();
-  }, [audio]);
+    await resumeAudio();
+  }, [resumeAudio]);
+
+  useEffect(() => {
+    void requestPermissions();
+  }, [requestPermissions]);
 
   useEffect(() => {
     if (!visualCheck || autoStartedRef.current) return;
@@ -105,8 +111,8 @@ export function App() {
             <div className="modal-card">
               <h1>Fruit Guitar</h1>
               <button className="primary-button" type="button" onClick={startGame}>
-                <Camera size={18} />
-                Activar camara
+                <Play size={18} fill="currentColor" />
+                Empezar
               </button>
             </div>
           </div>

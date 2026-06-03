@@ -12,6 +12,7 @@ interface AudioInputState {
   waveform: Float32Array;
   error: string | null;
   start: () => Promise<void>;
+  resume: () => Promise<void>;
   stop: () => void;
 }
 
@@ -69,6 +70,12 @@ export function useAudioInput(): AudioInputState {
     };
 
     rafRef.current = requestAnimationFrame(tick);
+  }, []);
+
+  const resume = useCallback(async () => {
+    if (contextRef.current?.state === "suspended") {
+      await contextRef.current.resume();
+    }
   }, []);
 
   const start = useCallback(async () => {
@@ -129,6 +136,7 @@ export function useAudioInput(): AudioInputState {
     waveform,
     error,
     start,
+    resume,
     stop,
   };
 }
