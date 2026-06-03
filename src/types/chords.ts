@@ -21,6 +21,8 @@ export interface ChordDetection {
   name: ChordName | null;
   confidence: number;
   rms: number;
+  rawRms: number;
+  trimGain: number;
   chroma: ChromaVector;
   timestamp: number;
   stable: boolean;

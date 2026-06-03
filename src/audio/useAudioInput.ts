@@ -3,15 +3,15 @@ import type { ChordDetection } from "../types/chords";
 import { emptyChroma } from "./chordTemplates";
 import { WebAudioChordRecognizer } from "./RecognitionEngine";
 
-type PermissionState = "idle" | "requesting" | "granted" | "denied" | "unsupported";
+export type AudioPermissionState = "idle" | "requesting" | "granted" | "denied" | "unsupported";
 
 interface AudioInputState {
-  permission: PermissionState;
+  permission: AudioPermissionState;
   stream: MediaStream | null;
   detection: ChordDetection;
   waveform: Float32Array;
   error: string | null;
-  start: () => Promise<void>;
+  start: () => Promise<boolean>;
   resume: () => Promise<void>;
   stop: () => void;
 }
@@ -20,13 +20,15 @@ const EMPTY_DETECTION: ChordDetection = {
   name: null,
   confidence: 0,
   rms: 0,
+  rawRms: 0,
+  trimGain: 1,
   chroma: emptyChroma(),
   timestamp: 0,
   stable: false,
 };
 
 export function useAudioInput(): AudioInputState {
-  const [permission, setPermission] = useState<PermissionState>("idle");
+  const [permission, setPermission] = useState<AudioPermissionState>("idle");
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [detection, setDetection] = useState<ChordDetection>(EMPTY_DETECTION);
   const [waveform, setWaveform] = useState<Float32Array>(new Float32Array(128));
@@ -82,7 +84,7 @@ export function useAudioInput(): AudioInputState {
     if (!navigator.mediaDevices?.getUserMedia) {
       setPermission("unsupported");
       setError("Este navegador no expone camara/microfono por WebRTC.");
-      return;
+      return false;
     }
 
     setPermission("requesting");
@@ -92,9 +94,10 @@ export function useAudioInput(): AudioInputState {
       stop();
       const nextStream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false,
+          echoCancellation: { ideal: false },
+          noiseSuppression: { ideal: false },
+          autoGainControl: { ideal: false },
+          channelCount: { ideal: 1 },
         },
         video: {
           width: { ideal: 960 },
@@ -117,13 +120,19 @@ export function useAudioInput(): AudioInputState {
       recognizerRef.current = new WebAudioChordRecognizer(analyser, context.sampleRate);
       streamRef.current = nextStream;
 
+      if (context.state === "suspended") {
+        await context.resume();
+      }
+
       setStream(nextStream);
       setPermission("granted");
       startLoop();
+      return true;
     } catch (caught) {
       stop();
       setPermission("denied");
       setError(caught instanceof Error ? caught.message : "No se pudieron abrir camara y microfono.");
+      return false;
     }
   }, [startLoop, stop]);
 

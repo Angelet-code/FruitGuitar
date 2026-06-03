@@ -25,6 +25,12 @@ describe("matchChordTemplate", () => {
     expect(detection.confidence).toBe(0);
   });
 
+  it("keeps the untrimmed RMS gate strict for quiet input", () => {
+    const detection = classifyChroma(chromaForChord("C"), 0.008, 1000);
+
+    expect(detection.name).toBeNull();
+  });
+
   it("does not emit a full chord from root and fifth only", () => {
     const detection = classifyChroma(chromaWith([[4, 1], [11, 0.9]]), 0.04, 1000);
 
@@ -58,6 +64,21 @@ describe("matchChordTemplate", () => {
     expect(match.name).toBe("Em");
   });
 
+  it("uses trim gain to recover a quiet but clear spectrum", () => {
+    const fftSize = 32768;
+    const quietSpectrum = spectrumWithPeaks([
+      [130.81, -98],
+      [164.81, -97],
+      [196, -98],
+      [261.63, -99],
+    ], fftSize);
+    const untrimmed = spectrumToChroma(quietSpectrum, 44100, fftSize);
+    const trimmed = spectrumToChroma(quietSpectrum, 44100, fftSize, 8);
+
+    expect(untrimmed.every((energy) => energy === 0)).toBe(true);
+    expect(matchChordTemplate(trimmed).name).toBe("C");
+  });
+
   it("does not emit a chord for empty chroma noise", () => {
     const detection = classifyChroma(emptyChroma(), 0.04, 1000);
 
@@ -73,9 +94,8 @@ function chromaWith(entries: Array<[pitchClass: number, energy: number]>): Chrom
   return normalizeChroma(chroma);
 }
 
-function spectrumWithPeaks(peaks: Array<[frequency: number, decibels: number]>): Float32Array {
+function spectrumWithPeaks(peaks: Array<[frequency: number, decibels: number]>, fftSize = 8192): Float32Array {
   const sampleRate = 44100;
-  const fftSize = 8192;
   const frequencyData = new Float32Array(fftSize / 2);
   frequencyData.fill(-100);
   const binWidth = sampleRate / fftSize;

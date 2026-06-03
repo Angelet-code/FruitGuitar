@@ -19,7 +19,7 @@ const INITIAL_SNAPSHOT: GameSnapshot = {
 
 export function App() {
   const audio = useAudioInput();
-  const requestPermissions = audio.start;
+  const startAudio = audio.start;
   const resumeAudio = audio.resume;
   const engineRef = useRef<GameEngine>(new GameEngine());
   const autoStartedRef = useRef(false);
@@ -35,15 +35,13 @@ export function App() {
   );
 
   const startGame = useCallback(async () => {
+    const audioStarted = await startAudio();
+    if (!audioStarted) return;
+    await resumeAudio();
     setHasStarted(true);
     engineRef.current.reset();
     setSnapshot(engineRef.current.getSnapshot());
-    await resumeAudio();
-  }, [resumeAudio]);
-
-  useEffect(() => {
-    void requestPermissions();
-  }, [requestPermissions]);
+  }, [resumeAudio, startAudio]);
 
   useEffect(() => {
     if (!visualCheck || autoStartedRef.current) return;
@@ -68,7 +66,7 @@ export function App() {
         <CameraPanel stream={audio.stream} permission={audio.permission} />
         <div className="telemetry-grid">
           <WaveformPanel waveform={audio.waveform} active={audio.permission === "granted"} />
-          <ChordPanel detection={audio.detection} />
+          <ChordPanel detection={audio.detection} permission={audio.permission} />
         </div>
       </aside>
 

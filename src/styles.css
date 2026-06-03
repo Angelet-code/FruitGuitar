@@ -138,14 +138,14 @@ button {
   display: grid;
   place-items: center;
   align-content: center;
-  gap: 10px;
-  padding-top: 22px;
+  gap: 6px;
+  padding-top: 18px;
   color: #77736b;
 }
 
 .chord-name {
-  min-height: 76px;
-  font-size: clamp(44px, 4.4vw, 68px);
+  min-height: 60px;
+  font-size: clamp(40px, 4vw, 62px);
   font-weight: 900;
   line-height: 1;
 }
@@ -161,7 +161,54 @@ button {
 
 .chord-state {
   color: #aaa39a;
-  font-size: 18px;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.mic-health {
+  width: min(132px, calc(100% - 12px));
+  display: grid;
+  justify-items: stretch;
+  gap: 5px;
+}
+
+.mic-meter {
+  height: 9px;
+  overflow: hidden;
+  border: 2px solid rgba(103, 96, 86, 0.24);
+  border-radius: 999px;
+  background: rgba(219, 213, 203, 0.65);
+}
+
+.mic-meter span {
+  display: block;
+  height: 100%;
+  min-width: 3px;
+  border-radius: inherit;
+  background: #79a76b;
+  transition: width 120ms ease;
+}
+
+.mic-health.off .mic-meter span {
+  background: #b7b1a7;
+}
+
+.mic-health.quiet .mic-meter span {
+  background: #d4a554;
+}
+
+.mic-health.ready .mic-meter span {
+  background: #5f9f54;
+}
+
+.mic-state {
+  overflow: hidden;
+  color: #928a80;
+  font-size: 14px;
+  line-height: 1;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .game-board {
@@ -514,6 +561,20 @@ button {
 
   .chord-state {
     font-size: 11px;
+  }
+
+  .mic-health {
+    width: min(106px, calc(100% - 8px));
+    gap: 3px;
+  }
+
+  .mic-meter {
+    height: 6px;
+    border-width: 1px;
+  }
+
+  .mic-state {
+    font-size: 10px;
   }
 
   .score-block {
