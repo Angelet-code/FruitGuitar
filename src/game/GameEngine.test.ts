@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { GameEngine } from "./GameEngine";
+import { GameEngine, spawnIntervalAt, spawnRateMultiplierAt } from "./GameEngine";
 
 function detection(name: "A" | "C" | "G", timestamp = 1000) {
   return {
@@ -11,6 +11,39 @@ function detection(name: "A" | "C" | "G", timestamp = 1000) {
 }
 
 describe("GameEngine", () => {
+  it("ramps spawn rate linearly and doubles it at 30 seconds", () => {
+    expect(spawnRateMultiplierAt(0)).toBe(1);
+    expect(spawnRateMultiplierAt(30000)).toBe(2);
+    expect(spawnRateMultiplierAt(60000)).toBe(3);
+    expect(spawnIntervalAt(2000, 30000)).toBe(1000);
+    expect(spawnIntervalAt(2000, 60000)).toBeCloseTo(666.67, 2);
+  });
+
+  it("spawns fruit faster in each linear 30 second window", () => {
+    const engine = new GameEngine({
+      width: 600,
+      height: 100000,
+      spawnIntervalMs: 1000,
+      rng: () => 0.5,
+    });
+    engine.reset();
+
+    for (let time = 0; time < 30000; time += 80) {
+      engine.step(80);
+    }
+    const firstThirtySeconds = engine.getSnapshot().fruits.length;
+
+    for (let time = 0; time < 30000; time += 80) {
+      engine.step(80);
+    }
+    const secondThirtySeconds = engine.getSnapshot().fruits.length - firstThirtySeconds;
+
+    expect(firstThirtySeconds).toBeGreaterThanOrEqual(44);
+    expect(firstThirtySeconds).toBeLessThanOrEqual(47);
+    expect(secondThirtySeconds).toBeGreaterThanOrEqual(74);
+    expect(secondThirtySeconds).toBeLessThanOrEqual(77);
+  });
+
   it("cuts a matching fruit and adds points", () => {
     const engine = new GameEngine({ width: 600, height: 600, rng: () => 0.5 });
     engine.reset();

@@ -6,6 +6,7 @@ interface GameEngineOptions {
   height?: number;
   maxLives?: number;
   spawnIntervalMs?: number;
+  spawnRateDoubleTimeMs?: number;
   rng?: () => number;
 }
 
@@ -21,6 +22,14 @@ const FRUIT_KINDS: FruitKind[] = [
   "banana",
 ];
 
+export function spawnRateMultiplierAt(elapsedMs: number, doubleTimeMs = 30000): number {
+  return 1 + Math.max(0, elapsedMs) / doubleTimeMs;
+}
+
+export function spawnIntervalAt(baseIntervalMs: number, elapsedMs: number, doubleTimeMs = 30000): number {
+  return baseIntervalMs / spawnRateMultiplierAt(elapsedMs, doubleTimeMs);
+}
+
 export class GameEngine {
   private width: number;
   private height: number;
@@ -32,7 +41,8 @@ export class GameEngine {
   private elapsedMs = 0;
   private lastCutAt = -Infinity;
   private lastCutChord: ChordName | null = null;
-  private spawnIntervalMs: number;
+  private readonly baseSpawnIntervalMs: number;
+  private readonly spawnRateDoubleTimeMs: number;
   private fruits: Fruit[] = [];
   private score = 0;
   private lives: number;
@@ -43,7 +53,8 @@ export class GameEngine {
     this.height = options.height ?? 900;
     this.maxLives = options.maxLives ?? 5;
     this.lives = this.maxLives;
-    this.spawnIntervalMs = options.spawnIntervalMs ?? 1950;
+    this.baseSpawnIntervalMs = options.spawnIntervalMs ?? 1950;
+    this.spawnRateDoubleTimeMs = options.spawnRateDoubleTimeMs ?? 30000;
     this.rng = options.rng ?? Math.random;
   }
 
@@ -71,7 +82,7 @@ export class GameEngine {
     this.lives = this.maxLives;
     this.status = "running";
     this.elapsedMs = 0;
-    this.spawnClock = this.spawnIntervalMs * 0.7;
+    this.spawnClock = this.baseSpawnIntervalMs * 0.7;
     this.lastCutAt = -Infinity;
     this.lastCutChord = null;
   }
@@ -83,10 +94,11 @@ export class GameEngine {
     this.elapsedMs += safeDelta;
     this.spawnClock += safeDelta;
 
-    if (this.spawnClock >= this.spawnIntervalMs) {
-      this.spawnClock = 0;
+    let currentSpawnInterval = this.getCurrentSpawnIntervalMs();
+    while (this.spawnClock >= currentSpawnInterval) {
+      this.spawnClock -= currentSpawnInterval;
       this.spawnFruit();
-      this.spawnIntervalMs = Math.max(1280, this.spawnIntervalMs * 0.995);
+      currentSpawnInterval = this.getCurrentSpawnIntervalMs();
     }
 
     const deltaSeconds = safeDelta / 1000;
@@ -191,5 +203,9 @@ export class GameEngine {
 
   private pickChord(): ChordName {
     return CHORD_NAMES[Math.floor(this.rng() * CHORD_NAMES.length)];
+  }
+
+  private getCurrentSpawnIntervalMs(): number {
+    return spawnIntervalAt(this.baseSpawnIntervalMs, this.elapsedMs, this.spawnRateDoubleTimeMs);
   }
 }
