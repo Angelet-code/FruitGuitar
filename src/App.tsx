@@ -1,4 +1,4 @@
-import { Heart, Play, RotateCcw, Settings, X } from "lucide-react";
+import { Camera, Heart, Play, RotateCcw, Settings, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChordPanel } from "./components/ChordPanel";
 import { CameraPanel } from "./components/CameraPanel";
@@ -105,8 +105,8 @@ export function App() {
             <div className="modal-card">
               <h1>Fruit Guitar</h1>
               <button className="primary-button" type="button" onClick={startGame}>
-                <Play size={18} fill="currentColor" />
-                Empezar
+                <Camera size={18} />
+                Activar camara
               </button>
             </div>
           </div>
@@ -166,7 +166,7 @@ export function App() {
                   onChange={(event) => setConfidenceThreshold(Number(event.target.value) / 100)}
                 />
               </label>
-              <p className="settings-note">Más alto = más estricto.</p>
+              <p className="settings-note">Mas alto = mas estricto.</p>
             </div>
           </div>
         ) : null}

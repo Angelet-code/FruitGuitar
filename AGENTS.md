@@ -9,4 +9,8 @@ When implementing from a selected generated mock, treat that image as the source
 ## Prototype Design Decisions
 
 - Use Caveat Brush from Google Fonts as the game typography.
+- On mobile, never allow page scrolling; the whole game must fit inside the viewport.
+- On mobile, keep the fruit board as the dominant area at roughly 70% of the viewport.
+- On mobile, place the front camera, waveform, and detected chord in one compact row at the bottom.
+- Request the user-facing/front camera for gameplay camera access.
 - Use the watermelon fruit sprite as the favicon and iOS web app icon.

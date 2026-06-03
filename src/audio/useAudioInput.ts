@@ -74,7 +74,7 @@ export function useAudioInput(): AudioInputState {
   const start = useCallback(async () => {
     if (!navigator.mediaDevices?.getUserMedia) {
       setPermission("unsupported");
-      setError("Este navegador no expone cámara/micrófono por WebRTC.");
+      setError("Este navegador no expone camara/microfono por WebRTC.");
       return;
     }
 
@@ -92,7 +92,7 @@ export function useAudioInput(): AudioInputState {
         video: {
           width: { ideal: 960 },
           height: { ideal: 720 },
-          facingMode: "user",
+          facingMode: { ideal: "user" },
         },
       });
 
@@ -100,10 +100,10 @@ export function useAudioInput(): AudioInputState {
       const context = new AudioContextCtor();
       const source = context.createMediaStreamSource(nextStream);
       const analyser = context.createAnalyser();
-      analyser.fftSize = 4096;
+      analyser.fftSize = 8192;
       analyser.minDecibels = -100;
       analyser.maxDecibels = -18;
-      analyser.smoothingTimeConstant = 0.55;
+      analyser.smoothingTimeConstant = 0.42;
       source.connect(analyser);
 
       contextRef.current = context;
@@ -116,7 +116,7 @@ export function useAudioInput(): AudioInputState {
     } catch (caught) {
       stop();
       setPermission("denied");
-      setError(caught instanceof Error ? caught.message : "No se pudieron abrir cámara y micrófono.");
+      setError(caught instanceof Error ? caught.message : "No se pudieron abrir camara y microfono.");
     }
   }, [startLoop, stop]);
 

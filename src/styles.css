@@ -7,15 +7,26 @@
   text-rendering: optimizeLegibility;
 }
 
+html {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 * {
   box-sizing: border-box;
 }
 
 body {
   margin: 0;
+  width: 100%;
+  height: 100%;
   min-width: 320px;
   min-height: 100vh;
   overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: manipulation;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -30,11 +41,13 @@ button {
 
 #root {
   min-height: 100vh;
+  height: 100%;
 }
 
 .app-shell {
   width: 100vw;
   height: 100vh;
+  height: 100dvh;
   display: grid;
   grid-template-columns: minmax(360px, 42vw) 1fr;
   gap: 16px;
@@ -402,52 +415,222 @@ button {
 }
 
 @media (max-width: 940px) {
+  html,
   body {
-    overflow: auto;
+    height: 100%;
+    overflow: hidden;
   }
 
   .app-shell {
-    height: auto;
-    min-height: 100vh;
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
     grid-template-columns: 1fr;
-    grid-template-rows: minmax(520px, 55vh) minmax(620px, 80vh);
-    padding: 14px;
+    grid-template-rows: minmax(0, 7fr) minmax(88px, 3fr);
+    gap: 8px;
+    padding: 8px;
+  }
+
+  .game-board {
+    grid-row: 1;
   }
 
   .left-console {
-    grid-template-rows: minmax(320px, 1fr) 160px;
+    grid-row: 2;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.45fr) minmax(0, 0.85fr);
+    grid-template-rows: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .left-console > .camera-panel {
+    grid-column: 1;
+  }
+
+  .telemetry-grid {
+    display: contents;
+  }
+
+  .telemetry-grid > .waveform-panel {
+    grid-column: 2;
+  }
+
+  .telemetry-grid > .chord-panel {
+    grid-column: 3;
+  }
+
+  .sketch-panel {
+    border-width: 2px;
+    box-shadow: 3px 4px 0 rgba(87, 80, 70, 0.08);
+  }
+
+  .panel-label {
+    top: 6px;
+    left: 6px;
+    max-width: calc(100% - 12px);
+    gap: 4px;
+    padding: 2px 5px;
+    border-radius: 4px;
+    font-size: 10px;
+  }
+
+  .panel-label svg {
+    width: 12px;
+    height: 12px;
+    flex: 0 0 auto;
+  }
+
+  .panel-label span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .camera-empty {
+    gap: 4px;
+    padding: 22px 4px 4px;
+    font-size: 12px;
+    line-height: 1;
+    text-align: center;
+  }
+
+  .camera-empty svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  .chord-readout {
+    gap: 2px;
+    padding: 22px 4px 4px;
+  }
+
+  .chord-name {
+    min-height: 0;
+    font-size: clamp(24px, 7vw, 38px);
+  }
+
+  .chord-match {
+    font-size: 12px;
+  }
+
+  .chord-state {
+    font-size: 11px;
+  }
+
+  .score-block {
+    top: 10px;
+    left: 14px;
+  }
+
+  .score-block span {
+    font-size: 14px;
+  }
+
+  .score-block strong {
+    font-size: clamp(34px, 9vw, 48px);
   }
 
   .lives-row {
-    top: 92px;
+    top: 14px;
+    gap: 4px;
+  }
+
+  .lives-row svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  .top-actions {
+    top: 8px;
+    right: 8px;
+    gap: 6px;
+  }
+
+  .icon-button {
+    width: 40px;
+    height: 40px;
+    border-width: 2px;
+    border-radius: 6px;
+    box-shadow: 2px 3px 0 rgba(87, 80, 70, 0.13);
+  }
+
+  .icon-button svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .permission-overlay,
+  .soft-overlay,
+  .game-over-overlay,
+  .settings-layer {
+    padding: 12px;
+  }
+
+  .modal-card {
+    width: min(340px, 92vw);
+    padding: 24px 26px;
+  }
+
+  .modal-card.compact {
+    width: min(280px, 92vw);
+  }
+
+  .modal-card h1 {
+    font-size: clamp(42px, 13vw, 58px);
+  }
+
+  .modal-card h2,
+  .game-over-card h2 {
+    font-size: clamp(38px, 11vw, 54px);
+  }
+
+  .primary-button {
+    min-height: 48px;
+    padding: 0 20px;
+    border-width: 2px;
+    font-size: 18px;
+  }
+
+  .permission-toast {
+    right: 12px;
+    bottom: 12px;
+    left: 12px;
+    max-width: none;
+    padding: 10px 12px;
   }
 }
 
 @media (max-width: 560px) {
-  .telemetry-grid {
-    grid-template-columns: 1fr;
-    grid-template-rows: 120px 130px;
+  .app-shell {
+    grid-template-rows: minmax(0, 7fr) minmax(82px, 3fr);
+    gap: 6px;
+    padding: 6px;
   }
 
   .left-console {
-    grid-template-rows: 320px 268px;
-  }
-
-  .score-block strong {
-    font-size: 44px;
-  }
-
-  .lives-row {
-    top: 105px;
+    grid-template-columns: minmax(0, 0.86fr) minmax(0, 1.36fr) minmax(0, 0.78fr);
     gap: 6px;
   }
 
-  .top-actions {
-    gap: 8px;
+  .panel-label {
+    top: 5px;
+    left: 5px;
+    max-width: calc(100% - 10px);
+    padding: 2px 4px;
+    font-size: 9px;
   }
 
-  .icon-button {
-    width: 48px;
-    height: 48px;
+  .camera-empty span {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .chord-name {
+    font-size: clamp(22px, 8vw, 34px);
+  }
+
+  .chord-state {
+    display: none;
   }
 }
