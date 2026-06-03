@@ -9,3 +9,4 @@ When implementing from a selected generated mock, treat that image as the source
 ## Prototype Design Decisions
 
 - Use Caveat Brush from Google Fonts as the game typography.
+- Use the watermelon fruit sprite as the favicon and iOS web app icon.
