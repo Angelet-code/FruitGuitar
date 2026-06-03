@@ -2,6 +2,10 @@
 
 Juego web tipo Fruit Ninja para practicar acordes de guitarra.
 
+## GitHub Pages
+
+https://angelet-code.github.io/FruitGuitar/
+
 ## Desarrollo
 
 ```bash
