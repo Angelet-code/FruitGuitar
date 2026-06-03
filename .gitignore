@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.npm-cache/
+reports/
+design-qa.md
+src/assets/fruits/fruit-sheet*.png
+
+*.log
+.DS_Store
+Thumbs.db

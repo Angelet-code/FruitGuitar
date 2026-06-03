@@ -1,0 +1,140 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { ChordDetection } from "../types/chords";
+import { emptyChroma } from "./chordTemplates";
+import { WebAudioChordRecognizer } from "./RecognitionEngine";
+
+type PermissionState = "idle" | "requesting" | "granted" | "denied" | "unsupported";
+
+interface AudioInputState {
+  permission: PermissionState;
+  stream: MediaStream | null;
+  detection: ChordDetection;
+  waveform: Float32Array;
+  error: string | null;
+  start: () => Promise<void>;
+  stop: () => void;
+}
+
+const EMPTY_DETECTION: ChordDetection = {
+  name: null,
+  confidence: 0,
+  rms: 0,
+  chroma: emptyChroma(),
+  timestamp: 0,
+  stable: false,
+};
+
+export function useAudioInput(): AudioInputState {
+  const [permission, setPermission] = useState<PermissionState>("idle");
+  const [stream, setStream] = useState<MediaStream | null>(null);
+  const [detection, setDetection] = useState<ChordDetection>(EMPTY_DETECTION);
+  const [waveform, setWaveform] = useState<Float32Array>(new Float32Array(128));
+  const [error, setError] = useState<string | null>(null);
+
+  const contextRef = useRef<AudioContext | null>(null);
+  const recognizerRef = useRef<WebAudioChordRecognizer | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const lastUiUpdateRef = useRef(0);
+
+  const stop = useCallback(() => {
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+
+    recognizerRef.current?.dispose();
+    recognizerRef.current = null;
+
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+    setStream(null);
+
+    void contextRef.current?.close();
+    contextRef.current = null;
+  }, []);
+
+  const startLoop = useCallback(() => {
+    const tick = (time: number) => {
+      const recognizer = recognizerRef.current;
+      if (recognizer) {
+        const nextDetection = recognizer.analyze(time);
+        if (time - lastUiUpdateRef.current > 34) {
+          setDetection(nextDetection);
+          setWaveform(recognizer.getWaveform());
+          lastUiUpdateRef.current = time;
+        }
+      }
+      rafRef.current = requestAnimationFrame(tick);
+    };
+
+    rafRef.current = requestAnimationFrame(tick);
+  }, []);
+
+  const start = useCallback(async () => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setPermission("unsupported");
+      setError("Este navegador no expone cámara/micrófono por WebRTC.");
+      return;
+    }
+
+    setPermission("requesting");
+    setError(null);
+
+    try {
+      stop();
+      const nextStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+        },
+        video: {
+          width: { ideal: 960 },
+          height: { ideal: 720 },
+          facingMode: "user",
+        },
+      });
+
+      const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+      const context = new AudioContextCtor();
+      const source = context.createMediaStreamSource(nextStream);
+      const analyser = context.createAnalyser();
+      analyser.fftSize = 4096;
+      analyser.minDecibels = -100;
+      analyser.maxDecibels = -18;
+      analyser.smoothingTimeConstant = 0.55;
+      source.connect(analyser);
+
+      contextRef.current = context;
+      recognizerRef.current = new WebAudioChordRecognizer(analyser, context.sampleRate);
+      streamRef.current = nextStream;
+
+      setStream(nextStream);
+      setPermission("granted");
+      startLoop();
+    } catch (caught) {
+      stop();
+      setPermission("denied");
+      setError(caught instanceof Error ? caught.message : "No se pudieron abrir cámara y micrófono.");
+    }
+  }, [startLoop, stop]);
+
+  useEffect(() => stop, [stop]);
+
+  return {
+    permission,
+    stream,
+    detection,
+    waveform,
+    error,
+    start,
+    stop,
+  };
+}
+
+declare global {
+  interface Window {
+    webkitAudioContext?: typeof AudioContext;
+  }
+}
