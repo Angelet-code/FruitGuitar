@@ -51,11 +51,22 @@ button {
   display: grid;
   grid-template-columns: minmax(360px, 42vw) 1fr;
   gap: 16px;
+  overflow: hidden;
   padding: 22px 24px;
   background:
     linear-gradient(90deg, rgba(93, 79, 58, 0.045) 1px, transparent 1px),
     #f7f1e7;
   background-size: 34px 34px, auto;
+}
+
+.startup-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(255, 255, 255, 0.5);
 }
 
 .left-console {
@@ -294,7 +305,6 @@ button {
   height: 42px;
 }
 
-.permission-overlay,
 .soft-overlay,
 .game-over-overlay,
 .settings-layer {
@@ -304,10 +314,6 @@ button {
   display: grid;
   place-items: center;
   padding: 24px;
-}
-
-.permission-overlay {
-  background: rgba(251, 246, 236, 0.58);
 }
 
 .soft-overlay,
@@ -329,6 +335,170 @@ button {
 
 .modal-card {
   padding: 34px 36px;
+}
+
+.tuning-card {
+  width: min(560px, calc(100vw - 48px));
+  max-height: min(680px, calc(100% - 24px));
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  overflow: hidden;
+  padding: 26px 30px 28px;
+  border: 3px solid #4e4b45;
+  border-radius: 8px;
+  color: #4d4a44;
+  background: rgba(255, 253, 247, 0.96);
+  box-shadow: 7px 8px 0 rgba(87, 80, 70, 0.12);
+  text-align: center;
+}
+
+.tuning-heading {
+  display: grid;
+  gap: 2px;
+}
+
+.tuning-kicker {
+  color: #8c877e;
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.tuning-card h1 {
+  margin: 0;
+  color: #4d4a44;
+  font-size: 66px;
+  line-height: 0.9;
+}
+
+.tuner-face {
+  --tuner-progress: 0%;
+  width: 260px;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 4px;
+  padding: 24px;
+  border: 4px solid #4e4b45;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, #fffdf7 0 58%, transparent 59%),
+    conic-gradient(#d4a554 var(--tuner-progress), rgba(218, 211, 197, 0.82) 0);
+  box-shadow:
+    inset 0 0 0 12px rgba(255, 253, 247, 0.86),
+    4px 6px 0 rgba(87, 80, 70, 0.1);
+}
+
+.tuner-face.ready {
+  background:
+    radial-gradient(circle, #fffdf7 0 58%, transparent 59%),
+    conic-gradient(#6fa060 var(--tuner-progress), rgba(218, 211, 197, 0.82) 0);
+}
+
+.tuner-face.close {
+  background:
+    radial-gradient(circle, #fffdf7 0 58%, transparent 59%),
+    conic-gradient(#d4a554 var(--tuner-progress), rgba(218, 211, 197, 0.82) 0);
+}
+
+.tuner-face.listening {
+  background:
+    radial-gradient(circle, #fffdf7 0 58%, transparent 59%),
+    conic-gradient(#83a6b4 var(--tuner-progress), rgba(218, 211, 197, 0.82) 0);
+}
+
+.tuner-face.off {
+  background:
+    radial-gradient(circle, #fffdf7 0 58%, transparent 59%),
+    conic-gradient(#b7b1a7 var(--tuner-progress), rgba(218, 211, 197, 0.82) 0);
+}
+
+.tuner-face-label {
+  color: #969087;
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.tuner-face strong {
+  min-height: 88px;
+  color: #6ca05f;
+  font-size: 92px;
+  font-weight: 900;
+  line-height: 0.9;
+}
+
+.tuner-face span:last-child {
+  max-width: 190px;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+  color: #6f6a62;
+  font-size: 20px;
+  font-weight: 900;
+  line-height: 1;
+  text-wrap: balance;
+  white-space: normal;
+}
+
+.tuning-meter {
+  position: relative;
+  width: min(360px, 100%);
+  height: 13px;
+  overflow: visible;
+  border: 2px solid rgba(103, 96, 86, 0.28);
+  border-radius: 999px;
+  background: rgba(219, 213, 203, 0.7);
+}
+
+.tuning-meter::before {
+  position: absolute;
+  top: -7px;
+  bottom: -7px;
+  left: 50%;
+  width: 3px;
+  border-radius: 999px;
+  background: rgba(108, 160, 95, 0.45);
+  content: "";
+  transform: translateX(-50%);
+}
+
+.tuning-meter span {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 16px;
+  height: 16px;
+  border: 2px solid #5b8e50;
+  border-radius: 50%;
+  background: #79a76b;
+  box-shadow: 0 2px 0 rgba(87, 80, 70, 0.12);
+  opacity: 0;
+  transform: translate(-50%, -50%);
+  transition: left 120ms ease, opacity 120ms ease;
+}
+
+.tuning-meter.active span {
+  opacity: 1;
+}
+
+.tuning-error {
+  max-width: 440px;
+  margin: 0;
+  color: #8c4f35;
+  font-size: 18px;
+  line-height: 1.1;
+}
+
+.tuning-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
 }
 
 .modal-card.compact {
@@ -381,9 +551,42 @@ button {
   background: #a9d69b;
 }
 
+.primary-button:disabled,
+.secondary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+  transform: none;
+  box-shadow: 2px 3px 0 rgba(87, 80, 70, 0.1);
+}
+
 .primary-button:active {
   transform: translateY(2px);
   box-shadow: 2px 3px 0 rgba(74, 109, 62, 0.24);
+}
+
+.secondary-button {
+  min-height: 58px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 0 22px;
+  border: 3px solid #4e4b45;
+  border-radius: 6px;
+  color: #4d4a44;
+  background: #fffdf7;
+  box-shadow: 4px 5px 0 rgba(87, 80, 70, 0.13);
+  font-weight: 900;
+  font-size: 20px;
+}
+
+.secondary-button:hover:not(:disabled) {
+  background: #f4eee2;
+}
+
+.secondary-button:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 2px 3px 0 rgba(87, 80, 70, 0.13);
 }
 
 .permission-toast {
@@ -619,7 +822,6 @@ button {
     height: 20px;
   }
 
-  .permission-overlay,
   .soft-overlay,
   .game-over-overlay,
   .settings-layer {
@@ -629,6 +831,55 @@ button {
   .modal-card {
     width: min(340px, 92vw);
     padding: 24px 26px;
+  }
+
+  .tuning-card {
+    width: min(420px, calc(100vw - 48px));
+    max-width: 100%;
+    max-height: calc(100% - 16px);
+    gap: 10px;
+    padding: 16px 18px;
+  }
+
+  .tuning-kicker {
+    display: none;
+  }
+
+  .tuning-card h1 {
+    font-size: 50px;
+  }
+
+  .tuner-face {
+    width: clamp(118px, 27dvh, 205px);
+    padding: 14px;
+    border-width: 3px;
+    box-shadow:
+      inset 0 0 0 8px rgba(255, 253, 247, 0.86),
+      3px 4px 0 rgba(87, 80, 70, 0.1);
+  }
+
+  .tuner-face-label {
+    font-size: 14px;
+  }
+
+  .tuner-face strong {
+    min-height: 62px;
+    font-size: 70px;
+  }
+
+  .tuner-face span:last-child {
+    max-width: 150px;
+    font-size: 16px;
+  }
+
+  .tuning-meter {
+    height: 10px;
+    border-width: 1px;
+  }
+
+  .tuning-error {
+    max-width: 330px;
+    font-size: 15px;
   }
 
   .modal-card.compact {
@@ -651,6 +902,13 @@ button {
     font-size: 18px;
   }
 
+  .secondary-button {
+    min-height: 48px;
+    padding: 0 18px;
+    border-width: 2px;
+    font-size: 18px;
+  }
+
   .permission-toast {
     right: 12px;
     bottom: 12px;
@@ -665,6 +923,10 @@ button {
     grid-template-rows: minmax(0, 7fr) minmax(82px, 3fr);
     gap: 6px;
     padding: 6px;
+  }
+
+  .startup-overlay {
+    padding: 12px;
   }
 
   .left-console {
@@ -693,5 +955,44 @@ button {
 
   .chord-state {
     display: none;
+  }
+
+  .tuning-card {
+    width: min(340px, calc(100vw - 48px));
+    gap: 8px;
+    padding: 12px 14px;
+  }
+
+  .tuning-actions {
+    width: 100%;
+  }
+
+  .tuning-actions .primary-button,
+  .tuning-actions .secondary-button {
+    flex: 1 1 132px;
+    min-width: 0;
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+
+  .tuning-card h1 {
+    font-size: 42px;
+  }
+
+  .tuner-face {
+    width: clamp(108px, 26dvh, 176px);
+  }
+
+  .tuner-face strong {
+    min-height: 52px;
+    font-size: 58px;
+  }
+
+  .tuner-face span:last-child {
+    font-size: 14px;
+  }
+
+  .tuning-actions {
+    gap: 6px;
   }
 }

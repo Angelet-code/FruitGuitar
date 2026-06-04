@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { chromaForChord, emptyChroma, normalizeChroma } from "./chordTemplates";
-import { classifyChroma, matchChordTemplate, spectrumToChroma } from "./RecognitionEngine";
+import { classifyChroma, computeRms, detectNoteFromWaveform, matchChordTemplate, spectrumToChroma } from "./RecognitionEngine";
 import type { ChromaVector } from "../types/chords";
 
 describe("matchChordTemplate", () => {
@@ -84,6 +84,55 @@ describe("matchChordTemplate", () => {
 
     expect(detection.name).toBeNull();
   });
+
+  it("keeps chroma chord classification separate from note tuning", () => {
+    const detection = classifyChroma(chromaForChord("E"), 0.04, 1000);
+
+    expect(detection.name).toBe("E");
+    expect(detection.note).toBeNull();
+  });
+});
+
+describe("detectNoteFromWaveform", () => {
+  it("detects a clean A guitar string as an individual note", () => {
+    const samples = sineWave(110);
+    const note = detectNoteFromWaveform(samples, 44100, computeRms(samples), 1000);
+
+    expect(note?.name).toBe("A");
+    expect(note?.octave).toBe(2);
+    expect(note?.cents).toBeCloseTo(0, 0);
+  });
+
+  it("detects sharps for alternate tunings", () => {
+    const notes = [
+      [277.18, "C#"],
+      [369.99, "F#"],
+      [466.16, "A#"],
+    ] as const;
+
+    notes.forEach(([frequency, expected]) => {
+      const samples = sineWave(frequency);
+      const note = detectNoteFromWaveform(samples, 44100, computeRms(samples), 1000);
+
+      expect(note?.name).toBe(expected);
+      expect(Math.abs(note?.cents ?? 99)).toBeLessThan(2);
+    });
+  });
+
+  it("covers low alternate guitar tunings", () => {
+    const samples = sineWave(61.74);
+    const note = detectNoteFromWaveform(samples, 44100, computeRms(samples), 1000);
+
+    expect(note?.name).toBe("B");
+    expect(note?.octave).toBe(1);
+    expect(Math.abs(note?.cents ?? 99)).toBeLessThan(2);
+  });
+
+  it("stays silent for a signal below tuner floor", () => {
+    const samples = sineWave(440, 0.001);
+
+    expect(detectNoteFromWaveform(samples, 44100, computeRms(samples), 1000)).toBeNull();
+  });
 });
 
 function chromaWith(entries: Array<[pitchClass: number, energy: number]>): ChromaVector {
@@ -105,4 +154,12 @@ function spectrumWithPeaks(peaks: Array<[frequency: number, decibels: number]>, 
   });
 
   return frequencyData;
+}
+
+function sineWave(frequency: number, amplitude = 0.45, sampleRate = 44100, length = 8192): Float32Array {
+  const samples = new Float32Array(length);
+  for (let index = 0; index < samples.length; index += 1) {
+    samples[index] = Math.sin((index / sampleRate) * Math.PI * 2 * frequency) * amplitude;
+  }
+  return samples;
 }

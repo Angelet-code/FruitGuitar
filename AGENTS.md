@@ -13,6 +13,10 @@ When implementing from a selected generated mock, treat that image as the source
 - On mobile, keep the fruit board as the dominant area at roughly 70% of the viewport.
 - On mobile, place the front camera, waveform, and detected chord in one compact row at the bottom.
 - Request the user-facing/front camera for gameplay camera access.
-- Request camera/microphone permissions when the app loads, not from the play button.
+- Request camera/microphone permissions from the startup tuning popup before gameplay starts, not from the play button.
+- Keep the startup tuning popup centered over the whole viewport with a 50% white backdrop; it is an overlay above the app, not part of the game grid.
+- Do not show microphone/camera icons in the startup tuning popup.
+- Do not show microphone/camera labels or status chips in the startup tuning popup.
+- The startup tuner detects single guitar notes across all 12 semitones, including sharps; gameplay keeps using chord detection.
 - Keep the play button as a game-start action labeled "Empezar".
 - Use the watermelon fruit sprite as the favicon and iOS web app icon.

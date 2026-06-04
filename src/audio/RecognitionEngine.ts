@@ -1,4 +1,4 @@
-import { CHORD_NAMES, type ChordDetection, type ChordName, type ChromaVector } from "../types/chords";
+import { CHORD_NAMES, NOTE_NAMES, type ChordDetection, type ChordName, type ChromaVector, type NoteDetection, type NoteName } from "../types/chords";
 import { CHORD_TEMPLATES, emptyChroma, normalizeChroma } from "./chordTemplates";
 
 export interface RecognitionEngine {
@@ -17,8 +17,11 @@ interface MatchResult {
 
 const MIN_FREQUENCY = 70;
 const MAX_FREQUENCY = 1200;
+const MIN_NOTE_FREQUENCY = 55;
+const MAX_NOTE_FREQUENCY = 1400;
 const DB_FLOOR = -92;
 const HISTORY_SIZE = 4;
+const NOTE_HISTORY_SIZE = 4;
 const THIRD_CONTRAST_WEIGHT = 0.34;
 const OUT_OF_CHORD_PENALTY = 0.045;
 const COVERAGE_WEIGHT = 0.035;
@@ -26,6 +29,9 @@ const RMS_FLOOR = 0.012;
 const AUTO_TRIM_TARGET_RMS = 0.045;
 const AUTO_TRIM_MIN_RMS = 0.0025;
 const AUTO_TRIM_MAX_GAIN = 8;
+const NOTE_RMS_FLOOR = 0.0065;
+const NOTE_CORRELATION_FLOOR = 0.44;
+const NOTE_RELATIVE_PEAK_FLOOR = 0.74;
 const ANALYSER_FLOOR_GUARD = -99.5;
 const PEAK_RELATIVE_FLOOR = 54;
 const HARMONIC_LEAKS = [
@@ -87,6 +93,7 @@ export function classifyChroma(
 
   return {
     name: hasSignal ? match.name : null,
+    note: null,
     confidence: hasSignal ? match.confidence : 0,
     rms,
     rawRms: rms,
@@ -104,6 +111,7 @@ export class WebAudioChordRecognizer implements RecognitionEngine {
   private readonly waveformData: Float32Array<ArrayBuffer>;
   private readonly trimmedWaveformData: Float32Array<ArrayBuffer>;
   private readonly history: Array<ChordName | null> = [];
+  private readonly noteHistory: Array<NoteName | null> = [];
   private trimGain = 1;
 
   constructor(analyser: AnalyserNode, sampleRate: number) {
@@ -125,6 +133,7 @@ export class WebAudioChordRecognizer implements RecognitionEngine {
     const rms = computeRms(this.trimmedWaveformData);
     const chroma = spectrumToChroma(this.frequencyData, this.sampleRate, this.analyser.fftSize, this.trimGain);
     const detection = classifyChroma(chroma, rms, timestamp);
+    detection.note = detectNoteFromWaveform(this.trimmedWaveformData, this.sampleRate, rms, timestamp);
     detection.rawRms = rawRms;
     detection.trimGain = this.trimGain;
 
@@ -138,6 +147,19 @@ export class WebAudioChordRecognizer implements RecognitionEngine {
       detection.confidence = detection.confidence * 0.72;
     }
 
+    this.noteHistory.push(detection.note?.name ?? null);
+    if (this.noteHistory.length > NOTE_HISTORY_SIZE) {
+      this.noteHistory.shift();
+    }
+
+    if (detection.note) {
+      const stableNoteCount = this.noteHistory.filter((name) => name === detection.note?.name).length;
+      detection.note.stable = stableNoteCount >= 3;
+      if (!detection.note.stable) {
+        detection.note.confidence = detection.note.confidence * 0.82;
+      }
+    }
+
     return detection;
   }
 
@@ -147,7 +169,82 @@ export class WebAudioChordRecognizer implements RecognitionEngine {
 
   dispose(): void {
     this.history.length = 0;
+    this.noteHistory.length = 0;
   }
+}
+
+export function detectNoteFromWaveform(
+  samples: Float32Array,
+  sampleRate: number,
+  rms: number,
+  timestamp: number,
+): NoteDetection | null {
+  if (samples.length === 0 || rms < NOTE_RMS_FLOOR) return null;
+
+  const minLag = Math.max(2, Math.floor(sampleRate / MAX_NOTE_FREQUENCY));
+  const maxLag = Math.min(samples.length - 2, Math.ceil(sampleRate / MIN_NOTE_FREQUENCY));
+  if (maxLag <= minLag) return null;
+
+  const correlations = new Float32Array(maxLag + 1);
+  let bestLag = minLag;
+  let bestScore = -Infinity;
+
+  for (let lag = minLag; lag <= maxLag; lag += 1) {
+    let sum = 0;
+    let sourceEnergy = 0;
+    let shiftedEnergy = 0;
+
+    for (let index = 0; index < samples.length - lag; index += 1) {
+      const source = samples[index];
+      const shifted = samples[index + lag];
+      sum += source * shifted;
+      sourceEnergy += source * source;
+      shiftedEnergy += shifted * shifted;
+    }
+
+    const denominator = Math.sqrt(sourceEnergy * shiftedEnergy);
+    const score = denominator > 0 ? sum / denominator : 0;
+    correlations[lag] = score;
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestLag = lag;
+    }
+  }
+
+  if (bestScore < NOTE_CORRELATION_FLOOR) return null;
+
+  const acceptableScore = Math.max(NOTE_CORRELATION_FLOOR, bestScore * NOTE_RELATIVE_PEAK_FLOOR);
+  for (let lag = minLag + 1; lag < maxLag; lag += 1) {
+    if (correlations[lag] >= acceptableScore && correlations[lag] >= correlations[lag - 1] && correlations[lag] >= correlations[lag + 1]) {
+      bestLag = lag;
+      bestScore = correlations[lag];
+      break;
+    }
+  }
+
+  const refinedLag = refineLagWithParabola(correlations, bestLag);
+  const frequency = sampleRate / refinedLag;
+  if (!Number.isFinite(frequency) || frequency < MIN_NOTE_FREQUENCY || frequency > MAX_NOTE_FREQUENCY) return null;
+
+  const exactMidi = 69 + 12 * Math.log2(frequency / 440);
+  const midi = Math.round(exactMidi);
+  const pitchClass = getPitchClass(midi);
+  const octave = Math.floor(midi / 12) - 1;
+  const targetFrequency = 440 * Math.pow(2, (midi - 69) / 12);
+  const cents = 1200 * Math.log2(frequency / targetFrequency);
+  const confidence = clamp((bestScore - NOTE_CORRELATION_FLOOR) / (1 - NOTE_CORRELATION_FLOOR), 0, 1);
+
+  return {
+    name: NOTE_NAMES[pitchClass],
+    octave,
+    frequency,
+    targetFrequency,
+    cents,
+    confidence,
+    timestamp,
+    stable: false,
+  };
 }
 
 export function spectrumToChroma(
@@ -189,6 +286,15 @@ export function computeRms(samples: Float32Array): number {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
+}
+
+function refineLagWithParabola(correlations: Float32Array, lag: number): number {
+  const previous = correlations[lag - 1] ?? correlations[lag];
+  const current = correlations[lag];
+  const next = correlations[lag + 1] ?? correlations[lag];
+  const denominator = previous - 2 * current + next;
+  if (Math.abs(denominator) < 0.000001) return lag;
+  return lag + 0.5 * ((previous - next) / denominator);
 }
 
 function getThirdContrast(name: ChordName, chroma: ChromaVector): number {

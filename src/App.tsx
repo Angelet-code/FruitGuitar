@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChordPanel } from "./components/ChordPanel";
 import { CameraPanel } from "./components/CameraPanel";
 import { FruitCanvas } from "./components/FruitCanvas";
+import { TuningDialog } from "./components/TuningDialog";
 import { WaveformPanel } from "./components/WaveformPanel";
 import { useAudioInput } from "./audio/useAudioInput";
 import { GameEngine } from "./game/GameEngine";
@@ -23,6 +24,7 @@ export function App() {
   const resumeAudio = audio.resume;
   const engineRef = useRef<GameEngine>(new GameEngine());
   const autoStartedRef = useRef(false);
+  const accessRequestedRef = useRef(false);
   const [snapshot, setSnapshot] = useState<GameSnapshot>(INITIAL_SNAPSHOT);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [confidenceThreshold, setConfidenceThreshold] = useState(0.68);
@@ -34,20 +36,37 @@ export function App() {
     [snapshot.lives, snapshot.maxLives],
   );
 
-  const startGame = useCallback(async () => {
+  const requestAccess = useCallback(async () => {
+    if (audio.permission === "requesting") return false;
+    if (audio.permission === "granted") return true;
     const audioStarted = await startAudio();
-    if (!audioStarted) return;
-    await resumeAudio();
+    if (audioStarted) await resumeAudio();
+    return audioStarted;
+  }, [audio.permission, resumeAudio, startAudio]);
+
+  const beginGame = useCallback(async () => {
+    if (audio.permission === "granted") await resumeAudio();
     setHasStarted(true);
     engineRef.current.reset();
     setSnapshot(engineRef.current.getSnapshot());
-  }, [resumeAudio, startAudio]);
+  }, [audio.permission, resumeAudio]);
+
+  const startGame = useCallback(async () => {
+    if (audio.permission !== "granted") return;
+    await beginGame();
+  }, [audio.permission, beginGame]);
+
+  useEffect(() => {
+    if (hasStarted || audio.permission !== "idle" || accessRequestedRef.current) return;
+    accessRequestedRef.current = true;
+    void requestAccess();
+  }, [audio.permission, hasStarted, requestAccess]);
 
   useEffect(() => {
     if (!visualCheck || autoStartedRef.current) return;
     autoStartedRef.current = true;
-    void startGame();
-  }, [startGame, visualCheck]);
+    void beginGame();
+  }, [beginGame, visualCheck]);
 
   const playAgain = () => {
     engineRef.current.reset();
@@ -61,6 +80,7 @@ export function App() {
   };
 
   return (
+    <>
     <main className="app-shell">
       <aside className="left-console">
         <CameraPanel stream={audio.stream} permission={audio.permission} />
@@ -104,19 +124,7 @@ export function App() {
           onSnapshot={setSnapshot}
         />
 
-        {!hasStarted ? (
-          <div className="permission-overlay">
-            <div className="modal-card">
-              <h1>Fruit Guitar</h1>
-              <button className="primary-button" type="button" onClick={startGame}>
-                <Play size={18} fill="currentColor" />
-                Empezar
-              </button>
-            </div>
-          </div>
-        ) : null}
-
-        {audio.permission === "denied" || audio.permission === "unsupported" ? (
+        {hasStarted && (audio.permission === "denied" || audio.permission === "unsupported") ? (
           <div className="permission-toast" role="status">
             <strong>Audio no disponible</strong>
             <span>{audio.error ?? "Revisa permisos del navegador."}</span>
@@ -176,5 +184,17 @@ export function App() {
         ) : null}
       </section>
     </main>
+    {!hasStarted ? (
+      <div className="startup-overlay">
+        <TuningDialog
+          detection={audio.detection}
+          error={audio.error}
+          permission={audio.permission}
+          onRequestAccess={requestAccess}
+          onStart={startGame}
+        />
+      </div>
+    ) : null}
+    </>
   );
 }

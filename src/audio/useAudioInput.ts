@@ -18,6 +18,7 @@ interface AudioInputState {
 
 const EMPTY_DETECTION: ChordDetection = {
   name: null,
+  note: null,
   confidence: 0,
   rms: 0,
   rawRms: 0,
