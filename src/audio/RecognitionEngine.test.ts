@@ -141,6 +141,21 @@ describe("detectNoteFromWaveform", () => {
 
     expect(detectNoteFromWaveform(samples, 44100, computeRms(samples), 1000)).toBeNull();
   });
+
+  it("detects an unplugged-level string after strong tuner trim", () => {
+    const quietSamples = sineWave(110, 0.00009);
+    const boostedSamples = gainSamples(quietSamples, 160);
+    const note = detectNoteFromWaveform(boostedSamples, 44100, computeRms(boostedSamples), 1000);
+
+    expect(note?.name).toBe("A");
+    expect(note?.octave).toBe(2);
+  });
+
+  it("does not detect random noise after strong tuner trim", () => {
+    const boostedNoise = gainSamples(noiseSamples(0.00009), 160);
+
+    expect(detectNoteFromWaveform(boostedNoise, 44100, computeRms(boostedNoise), 1000)).toBeNull();
+  });
 });
 
 function chromaWith(entries: Array<[pitchClass: number, energy: number]>): ChromaVector {
@@ -168,6 +183,20 @@ function sineWave(frequency: number, amplitude = 0.45, sampleRate = 44100, lengt
   const samples = new Float32Array(length);
   for (let index = 0; index < samples.length; index += 1) {
     samples[index] = Math.sin((index / sampleRate) * Math.PI * 2 * frequency) * amplitude;
+  }
+  return samples;
+}
+
+function gainSamples(samples: Float32Array, gain: number): Float32Array {
+  return samples.map((sample) => Math.min(1, Math.max(-1, sample * gain))) as Float32Array;
+}
+
+function noiseSamples(amplitude: number, length = 8192): Float32Array {
+  let seed = 42;
+  const samples = new Float32Array(length);
+  for (let index = 0; index < samples.length; index += 1) {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    samples[index] = ((seed / 0xffffffff) * 2 - 1) * amplitude;
   }
   return samples;
 }

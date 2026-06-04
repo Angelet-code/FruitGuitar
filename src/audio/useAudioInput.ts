@@ -23,6 +23,7 @@ const EMPTY_DETECTION: ChordDetection = {
   rms: 0,
   rawRms: 0,
   trimGain: 1,
+  noteTrimGain: 1,
   noiseFloorRms: 0,
   chroma: emptyChroma(),
   timestamp: 0,

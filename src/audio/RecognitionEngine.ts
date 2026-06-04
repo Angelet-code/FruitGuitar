@@ -15,6 +15,17 @@ interface MatchResult {
   coverage: number;
 }
 
+interface TrimProfile {
+  targetRms: number;
+  minSignalRms: number;
+  minGain: number;
+  maxGain: number;
+  signalToNoise: number;
+  attack: number;
+  release: number;
+  idleRelease: number;
+}
+
 const MIN_FREQUENCY = 70;
 const MAX_FREQUENCY = 1200;
 const MIN_NOTE_FREQUENCY = 55;
@@ -26,17 +37,32 @@ const THIRD_CONTRAST_WEIGHT = 0.34;
 const OUT_OF_CHORD_PENALTY = 0.045;
 const COVERAGE_WEIGHT = 0.035;
 const RMS_FLOOR = 0.012;
-const AUTO_TRIM_TARGET_RMS = 0.052;
-const AUTO_TRIM_MIN_SIGNAL_RMS = 0.00065;
-const AUTO_TRIM_MIN_GAIN = 0.35;
-const AUTO_TRIM_MAX_GAIN = 32;
-const AUTO_TRIM_SIGNAL_TO_NOISE = 1.65;
-const NOISE_FLOOR_INITIAL_RMS = 0.00045;
-const NOISE_FLOOR_MIN_RMS = 0.00012;
+const CHORD_TRIM_PROFILE: TrimProfile = {
+  targetRms: 0.052,
+  minSignalRms: 0.00065,
+  minGain: 0.35,
+  maxGain: 32,
+  signalToNoise: 1.65,
+  attack: 0.16,
+  release: 0.32,
+  idleRelease: 0.1,
+};
+const NOTE_TRIM_PROFILE: TrimProfile = {
+  targetRms: 0.075,
+  minSignalRms: 0.00008,
+  minGain: 0.25,
+  maxGain: 160,
+  signalToNoise: 1.12,
+  attack: 0.24,
+  release: 0.38,
+  idleRelease: 0.06,
+};
+const NOISE_FLOOR_INITIAL_RMS = 0.00008;
+const NOISE_FLOOR_MIN_RMS = 0.00002;
 const NOISE_FLOOR_MAX_RMS = 0.02;
-const NOTE_RMS_FLOOR = 0.0065;
-const NOTE_CORRELATION_FLOOR = 0.44;
-const NOTE_RELATIVE_PEAK_FLOOR = 0.74;
+const NOTE_RMS_FLOOR = 0.0025;
+const NOTE_CORRELATION_FLOOR = 0.36;
+const NOTE_RELATIVE_PEAK_FLOOR = 0.7;
 const ANALYSER_FLOOR_GUARD = -99.5;
 const PEAK_RELATIVE_FLOOR = 54;
 const HARMONIC_LEAKS = [
@@ -103,6 +129,7 @@ export function classifyChroma(
     rms,
     rawRms: rms,
     trimGain: 1,
+    noteTrimGain: 1,
     noiseFloorRms: 0,
     chroma: normalizeChroma(chroma),
     timestamp,
@@ -116,9 +143,11 @@ export class WebAudioChordRecognizer implements RecognitionEngine {
   private readonly frequencyData: Float32Array<ArrayBuffer>;
   private readonly waveformData: Float32Array<ArrayBuffer>;
   private readonly trimmedWaveformData: Float32Array<ArrayBuffer>;
+  private readonly noteWaveformData: Float32Array<ArrayBuffer>;
   private readonly history: Array<ChordName | null> = [];
   private readonly noteHistory: Array<NoteName | null> = [];
   private trimGain = 1;
+  private noteTrimGain = 1;
   private noiseFloorRms = NOISE_FLOOR_INITIAL_RMS;
 
   constructor(analyser: AnalyserNode, sampleRate: number) {
@@ -127,6 +156,7 @@ export class WebAudioChordRecognizer implements RecognitionEngine {
     this.frequencyData = new Float32Array(this.analyser.frequencyBinCount);
     this.waveformData = new Float32Array(this.analyser.fftSize);
     this.trimmedWaveformData = new Float32Array(this.analyser.fftSize);
+    this.noteWaveformData = new Float32Array(this.analyser.fftSize);
   }
 
   analyze(timestamp = performance.now()): ChordDetection {
@@ -135,15 +165,19 @@ export class WebAudioChordRecognizer implements RecognitionEngine {
 
     const rawRms = computeRms(this.waveformData);
     this.noiseFloorRms = getNextNoiseFloorRms(this.noiseFloorRms, rawRms);
-    this.trimGain = getNextTrimGain(this.trimGain, rawRms, this.noiseFloorRms);
+    this.trimGain = getNextTrimGain(this.trimGain, rawRms, this.noiseFloorRms, CHORD_TRIM_PROFILE);
+    this.noteTrimGain = getNextTrimGain(this.noteTrimGain, rawRms, this.noiseFloorRms, NOTE_TRIM_PROFILE);
     applyTrim(this.waveformData, this.trimmedWaveformData, this.trimGain);
+    applyTrim(this.waveformData, this.noteWaveformData, this.noteTrimGain);
 
     const rms = computeRms(this.trimmedWaveformData);
+    const noteRms = computeRms(this.noteWaveformData);
     const chroma = spectrumToChroma(this.frequencyData, this.sampleRate, this.analyser.fftSize, this.trimGain);
     const detection = classifyChroma(chroma, rms, timestamp);
-    detection.note = detectNoteFromWaveform(this.trimmedWaveformData, this.sampleRate, rms, timestamp);
+    detection.note = detectNoteFromWaveform(this.noteWaveformData, this.sampleRate, noteRms, timestamp);
     detection.rawRms = rawRms;
     detection.trimGain = this.trimGain;
+    detection.noteTrimGain = this.noteTrimGain;
     detection.noiseFloorRms = this.noiseFloorRms;
 
     this.history.push(detection.name);
@@ -173,13 +207,14 @@ export class WebAudioChordRecognizer implements RecognitionEngine {
   }
 
   getWaveform(): Float32Array {
-    return this.trimmedWaveformData.slice(0, 768);
+    return this.noteWaveformData.slice(0, 768);
   }
 
   dispose(): void {
     this.history.length = 0;
     this.noteHistory.length = 0;
     this.trimGain = 1;
+    this.noteTrimGain = 1;
     this.noiseFloorRms = NOISE_FLOOR_INITIAL_RMS;
   }
 }
@@ -407,14 +442,14 @@ function getPitchClass(midi: number): number {
   return ((midi % 12) + 12) % 12;
 }
 
-function getNextTrimGain(currentGain: number, rawRms: number, noiseFloorRms: number): number {
-  const signalFloor = Math.max(AUTO_TRIM_MIN_SIGNAL_RMS, noiseFloorRms * AUTO_TRIM_SIGNAL_TO_NOISE);
+function getNextTrimGain(currentGain: number, rawRms: number, noiseFloorRms: number, profile: TrimProfile): number {
+  const signalFloor = Math.max(profile.minSignalRms, noiseFloorRms * profile.signalToNoise);
   if (rawRms < signalFloor) {
-    return currentGain + (1 - currentGain) * 0.1;
+    return currentGain + (1 - currentGain) * profile.idleRelease;
   }
 
-  const desiredGain = clamp(AUTO_TRIM_TARGET_RMS / rawRms, AUTO_TRIM_MIN_GAIN, AUTO_TRIM_MAX_GAIN);
-  const speed = desiredGain > currentGain ? 0.16 : 0.32;
+  const desiredGain = clamp(profile.targetRms / rawRms, profile.minGain, profile.maxGain);
+  const speed = desiredGain > currentGain ? profile.attack : profile.release;
   return currentGain + (desiredGain - currentGain) * speed;
 }
 

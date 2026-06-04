@@ -68,7 +68,11 @@ function getTuningStatus(
   if (permission === "requesting") return { label: "Preparando afinador", tone: "listening" };
   if (permission === "denied") return { label: "Permisos bloqueados", tone: "off" };
   if (permission === "unsupported") return { label: "Sin soporte", tone: "off" };
-  if (detection.rawRms < 0.0025) return { label: "Toca una cuerda", tone: "listening" };
+  const signalFloor = Math.max(0.00008, detection.noiseFloorRms * 1.12);
+  if (detection.rawRms < signalFloor) return { label: "Acerca la guitarra", tone: "listening" };
+  if (!detection.note && detection.noteTrimGain > 8) {
+    return { label: `Entrada baja x${Math.round(detection.noteTrimGain)}`, tone: "listening" };
+  }
   if (!detection.note) return { label: "Buscando nota", tone: "listening" };
   const cents = Math.round(detection.note.cents);
   if (Math.abs(cents) <= 5 && detection.note.stable) return { label: "Afinada", tone: "ready" };
