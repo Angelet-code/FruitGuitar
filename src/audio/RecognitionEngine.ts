@@ -26,9 +26,14 @@ const THIRD_CONTRAST_WEIGHT = 0.34;
 const OUT_OF_CHORD_PENALTY = 0.045;
 const COVERAGE_WEIGHT = 0.035;
 const RMS_FLOOR = 0.012;
-const AUTO_TRIM_TARGET_RMS = 0.045;
-const AUTO_TRIM_MIN_RMS = 0.0025;
-const AUTO_TRIM_MAX_GAIN = 8;
+const AUTO_TRIM_TARGET_RMS = 0.052;
+const AUTO_TRIM_MIN_SIGNAL_RMS = 0.00065;
+const AUTO_TRIM_MIN_GAIN = 0.35;
+const AUTO_TRIM_MAX_GAIN = 32;
+const AUTO_TRIM_SIGNAL_TO_NOISE = 1.65;
+const NOISE_FLOOR_INITIAL_RMS = 0.00045;
+const NOISE_FLOOR_MIN_RMS = 0.00012;
+const NOISE_FLOOR_MAX_RMS = 0.02;
 const NOTE_RMS_FLOOR = 0.0065;
 const NOTE_CORRELATION_FLOOR = 0.44;
 const NOTE_RELATIVE_PEAK_FLOOR = 0.74;
@@ -98,6 +103,7 @@ export function classifyChroma(
     rms,
     rawRms: rms,
     trimGain: 1,
+    noiseFloorRms: 0,
     chroma: normalizeChroma(chroma),
     timestamp,
     stable: false,
@@ -113,6 +119,7 @@ export class WebAudioChordRecognizer implements RecognitionEngine {
   private readonly history: Array<ChordName | null> = [];
   private readonly noteHistory: Array<NoteName | null> = [];
   private trimGain = 1;
+  private noiseFloorRms = NOISE_FLOOR_INITIAL_RMS;
 
   constructor(analyser: AnalyserNode, sampleRate: number) {
     this.analyser = analyser;
@@ -127,7 +134,8 @@ export class WebAudioChordRecognizer implements RecognitionEngine {
     this.analyser.getFloatTimeDomainData(this.waveformData);
 
     const rawRms = computeRms(this.waveformData);
-    this.trimGain = getNextTrimGain(this.trimGain, rawRms);
+    this.noiseFloorRms = getNextNoiseFloorRms(this.noiseFloorRms, rawRms);
+    this.trimGain = getNextTrimGain(this.trimGain, rawRms, this.noiseFloorRms);
     applyTrim(this.waveformData, this.trimmedWaveformData, this.trimGain);
 
     const rms = computeRms(this.trimmedWaveformData);
@@ -136,6 +144,7 @@ export class WebAudioChordRecognizer implements RecognitionEngine {
     detection.note = detectNoteFromWaveform(this.trimmedWaveformData, this.sampleRate, rms, timestamp);
     detection.rawRms = rawRms;
     detection.trimGain = this.trimGain;
+    detection.noiseFloorRms = this.noiseFloorRms;
 
     this.history.push(detection.name);
     if (this.history.length > HISTORY_SIZE) {
@@ -170,6 +179,8 @@ export class WebAudioChordRecognizer implements RecognitionEngine {
   dispose(): void {
     this.history.length = 0;
     this.noteHistory.length = 0;
+    this.trimGain = 1;
+    this.noiseFloorRms = NOISE_FLOOR_INITIAL_RMS;
   }
 }
 
@@ -396,14 +407,21 @@ function getPitchClass(midi: number): number {
   return ((midi % 12) + 12) % 12;
 }
 
-function getNextTrimGain(currentGain: number, rawRms: number): number {
-  if (rawRms < AUTO_TRIM_MIN_RMS) {
-    return currentGain + (1 - currentGain) * 0.08;
+function getNextTrimGain(currentGain: number, rawRms: number, noiseFloorRms: number): number {
+  const signalFloor = Math.max(AUTO_TRIM_MIN_SIGNAL_RMS, noiseFloorRms * AUTO_TRIM_SIGNAL_TO_NOISE);
+  if (rawRms < signalFloor) {
+    return currentGain + (1 - currentGain) * 0.1;
   }
 
-  const desiredGain = clamp(AUTO_TRIM_TARGET_RMS / rawRms, 1, AUTO_TRIM_MAX_GAIN);
-  const speed = desiredGain > currentGain ? 0.12 : 0.28;
+  const desiredGain = clamp(AUTO_TRIM_TARGET_RMS / rawRms, AUTO_TRIM_MIN_GAIN, AUTO_TRIM_MAX_GAIN);
+  const speed = desiredGain > currentGain ? 0.16 : 0.32;
   return currentGain + (desiredGain - currentGain) * speed;
+}
+
+function getNextNoiseFloorRms(currentFloor: number, rawRms: number): number {
+  const sample = clamp(rawRms, NOISE_FLOOR_MIN_RMS, NOISE_FLOOR_MAX_RMS);
+  const speed = sample < currentFloor ? 0.18 : 0.008;
+  return currentFloor + (sample - currentFloor) * speed;
 }
 
 function applyTrim(source: Float32Array, target: Float32Array, trimGain: number): void {

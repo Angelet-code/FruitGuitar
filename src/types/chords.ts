@@ -28,6 +28,7 @@ export interface ChordDetection {
   rms: number;
   rawRms: number;
   trimGain: number;
+  noiseFloorRms: number;
   chroma: ChromaVector;
   timestamp: number;
   stable: boolean;

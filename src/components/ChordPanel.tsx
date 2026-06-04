@@ -44,9 +44,10 @@ function getMicStatus(
   if (permission === "unsupported") return { label: "sin soporte", level: 0, tone: "off" };
 
   const level = Math.min(100, Math.round((detection.rms / 0.055) * 100));
-  if (detection.rawRms < 0.0025) return { label: "sin senal", level, tone: "off" };
-  if (detection.trimGain > 1.25 && !detection.stable) {
-    return { label: `trim x${detection.trimGain.toFixed(1)}`, level, tone: "quiet" };
+  const signalFloor = Math.max(0.00065, detection.noiseFloorRms * 1.65);
+  if (detection.rawRms < signalFloor) return { label: "sin senal", level, tone: "off" };
+  if ((detection.trimGain > 1.25 || detection.trimGain < 0.85) && !detection.stable) {
+    return { label: `trim x${detection.trimGain.toFixed(1)}`, level, tone: detection.trimGain > 1.25 ? "quiet" : "live" };
   }
   if (detection.name && detection.stable) return { label: "acorde ok", level, tone: "ready" };
   return { label: detection.name ? "analizando" : "senal ok", level, tone: "live" };

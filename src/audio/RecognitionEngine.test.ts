@@ -79,6 +79,14 @@ describe("matchChordTemplate", () => {
     expect(matchChordTemplate(trimmed).name).toBe("C");
   });
 
+  it("does not turn the analyser floor into a chord with strong trim", () => {
+    const spectrum = new Float32Array(32768 / 2);
+    spectrum.fill(-100);
+    const chroma = spectrumToChroma(spectrum, 44100, 32768, 32);
+
+    expect(chroma.every((energy) => energy === 0)).toBe(true);
+  });
+
   it("does not emit a chord for empty chroma noise", () => {
     const detection = classifyChroma(emptyChroma(), 0.04, 1000);
 
