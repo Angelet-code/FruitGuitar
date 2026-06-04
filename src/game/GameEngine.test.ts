@@ -10,6 +10,11 @@ function detection(name: "A" | "C" | "G", timestamp = 1000) {
   };
 }
 
+function sequenceRng(values: number[]) {
+  let index = 0;
+  return () => values[index++] ?? 0.5;
+}
+
 describe("GameEngine", () => {
   it("ramps spawn rate linearly and doubles it at 30 seconds", () => {
     expect(spawnRateMultiplierAt(0)).toBe(1);
@@ -42,6 +47,20 @@ describe("GameEngine", () => {
     expect(firstThirtySeconds).toBeLessThanOrEqual(47);
     expect(secondThirtySeconds).toBeGreaterThanOrEqual(74);
     expect(secondThirtySeconds).toBeLessThanOrEqual(77);
+  });
+
+  it("adds a random +/-5% variation to spawned fruit velocity", () => {
+    const baseVelocity = 74 + 0.5 * 54;
+    const sharedSpawnValues = [0.5, 0.5, 0.5, 0.5];
+
+    const slowEngine = new GameEngine({ rng: sequenceRng([...sharedSpawnValues, 0]) });
+    const slowFruit = slowEngine.spawnFruit("A");
+
+    const fastEngine = new GameEngine({ rng: sequenceRng([...sharedSpawnValues, 1]) });
+    const fastFruit = fastEngine.spawnFruit("A");
+
+    expect(slowFruit.velocity).toBeCloseTo(baseVelocity * 0.95, 4);
+    expect(fastFruit.velocity).toBeCloseTo(baseVelocity * 1.05, 4);
   });
 
   it("cuts a matching fruit and adds points", () => {

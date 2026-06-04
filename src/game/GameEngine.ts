@@ -135,13 +135,18 @@ export class GameEngine {
 
   spawnFruit(chord?: ChordName): Fruit {
     const radius = 48 + this.rng() * 18;
+    const resolvedChord = chord ?? this.pickChord();
+    const x = radius + this.rng() * Math.max(1, this.width - radius * 2);
+    const y = -radius - this.rng() * 90;
+    const baseVelocity = 74 + this.rng() * 54 + Math.min(38, this.elapsedMs / 32000);
+    const velocityVariation = 0.95 + this.rng() * 0.1;
     const fruit: Fruit = {
       id: `fruit-${this.fruitCounter++}`,
-      chord: chord ?? this.pickChord(),
+      chord: resolvedChord,
       kind: FRUIT_KINDS[this.fruitCounter % FRUIT_KINDS.length],
-      x: radius + this.rng() * Math.max(1, this.width - radius * 2),
-      y: -radius - this.rng() * 90,
-      velocity: 74 + this.rng() * 54 + Math.min(38, this.elapsedMs / 32000),
+      x,
+      y,
+      velocity: baseVelocity * velocityVariation,
       radius,
       rotation: (this.rng() - 0.5) * 0.35,
       spin: (this.rng() - 0.5) * 0.72,
