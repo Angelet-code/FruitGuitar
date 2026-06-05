@@ -23,7 +23,7 @@ export function TuningDialog({ detection, error, permission, onRequestAccess, on
     <div className="tuning-card" role="dialog" aria-modal="true" aria-labelledby="tuning-title">
       <div className="tuning-heading">
         <span className="tuning-kicker">Fruit Guitar</span>
-        <h1 id="tuning-title">Primero afina!</h1>
+        <h1 id="tuning-title">¡Primero afina!</h1>
       </div>
 
       <div
